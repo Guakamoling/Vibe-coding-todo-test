@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TodoMaster | 프리미엄 할일 관리</title>
+    <meta name="description" content="루틴과 일회성 할일을 스마트하게 관리하는 프리미엄 웹 서비스입니다.">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app" class="glass-container">
+        <header>
+            <div class="logo">
+                <span class="gradient-text">TodoMaster</span>
+            </div>
+            <div class="date-display" id="currentDate">2026년 4월 1일</div>
+        </header>
+
+        <main>
+            <!-- Input Section -->
+            <section class="input-section glass-panel">
+                <div class="input-group">
+                    <input type="text" id="todoInput" placeholder="새로운 할일을 입력하세요..." autocomplete="off">
+                    <div class="options">
+                        <label class="switch">
+                            <input type="checkbox" id="isRoutine">
+                            <span class="slider round"></span>
+                            <span class="label-text">매일 반복 (루틴)</span>
+                        </label>
+                        <div class="deadline-input" id="deadlineWrapper">
+                            <span class="icon">📅</span>
+                            <input type="datetime-local" id="todoDeadline">
+                        </div>
+                    </div>
+                    <button id="addBtn" class="primary-btn">추가하기</button>
+                </div>
+            </section>
+
+            <!-- Lists Section -->
+            <div class="lists-container">
+                <!-- Daily Routines -->
+                <section class="list-section routines">
+                    <h2><span class="icon">🔄</span> 일일 루틴</h2>
+                    <div id="routineList" class="todo-list">
+                        <!-- Routine items will be injected here -->
+                        <div class="empty-state">루틴을 등록해보세요.</div>
+                    </div>
+                </section>
+
+                <!-- One-off Tasks -->
+                <section class="list-section one-offs">
+                    <h2><span class="icon">🎯</span> 일회성 할일</h2>
+                    <div id="oneOffList" class="todo-list">
+                        <!-- One-off items will be injected here -->
+                        <div class="empty-state">할일을 등록해보세요.</div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Notification Toast / Modal -->
+        <div id="notificationArea" class="notification-area"></div>
+    </div>
+
+    <!-- Alert Modal for 15m Routines -->
+    <div id="alertModal" class="modal-overlay hidden">
+        <div class="modal-content glass-panel">
+            <h3><span class="icon">⚠️</span> 루틴 알림</h3>
+            <p id="alertMessage">아직 완료하지 않은 루틴이 있습니다!</p>
+            <div class="modal-actions">
+                <button id="closeModal" class="secondary-btn">알겠어요</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Scripts (using provided snippet) -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
