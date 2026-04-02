@@ -1,19 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getDatabase, ref, set, push, onValue, update, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
-// Firebase Configuration (Provided by USER)
-const firebaseConfig = {
-    apiKey: "AIzaSyBpklAJvjynqiCsw1b5aejcuhtTydW4aQQ",
-    authDomain: "todo-test-backend.firebaseapp.com",
-    projectId: "todo-test-backend",
-    databaseURL: "https://todo-test-backend-default-rtdb.asia-southeast1.firebasedatabase.app/",
-    storageBucket: "todo-test-backend.firebasestorage.app",
-    messagingSenderId: "907127729868",
-    appId: "1:907127729868:web:ef845db6faaa67cdaedc69"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase using global config
+const app = initializeApp(window.FIREBASE_CONFIG);
 const db = getDatabase(app);
 const dbRef = ref(db, 'todos');
 
@@ -28,6 +17,8 @@ const currentDateEl = document.getElementById('currentDate');
 const alertModal = document.getElementById('alertModal');
 const closeModalBtn = document.getElementById('closeModal');
 const deadlineWrapper = document.getElementById('deadlineWrapper');
+const deadlineIcon = document.getElementById('deadlineIcon');
+const routineTime = document.getElementById('routineTime');
 
 // State
 let todos = [];
@@ -49,24 +40,49 @@ const addTodo = () => {
 
     const isRoutine = isRoutineToggle.checked;
     const deadline = todoDeadline.value;
+    const rTime = routineTime.value;
 
     const newTodo = {
         title,
         isRoutine,
-        deadline: deadline || null,
+        deadline: isRoutine ? null : (deadline || null),
+        routineTime: isRoutine ? (rTime || null) : null,
         completed: false,
         createdAt: serverTimestamp(),
         lastCompletedDate: null // For routines
     };
 
+    // Notification helper
+    const showNotification = (msg, isError = false) => {
+        const area = document.getElementById('notificationArea');
+        if (area) {
+            area.innerHTML = `<div style="background: ${isError ? '#ef4444' : '#10b981'}; padding: 1rem; border-radius: 0.5rem; margin-top: 1rem;">${msg}</div>`;
+            setTimeout(() => area.innerHTML = '', 3000);
+        } else {
+            alert(msg);
+        }
+    };
+
     const newTodoRef = push(dbRef);
-    set(newTodoRef, newTodo);
+    set(newTodoRef, newTodo)
+        .then(() => {
+            showNotification('할일이 추가되었습니다.');
+        })
+        .catch(err => {
+            console.error('Firebase Error:', err);
+            showNotification('추가 실패. 권한이나 네트워크를 확인하세요.', true);
+        });
 
     // Reset Input
     todoInput.value = '';
     todoDeadline.value = '';
+    routineTime.value = '';
     isRoutineToggle.checked = false;
-    deadlineWrapper.classList.remove('hidden');
+    
+    // Reset UI toggles
+    deadlineIcon.textContent = '📅';
+    todoDeadline.classList.remove('hidden');
+    routineTime.classList.add('hidden');
 };
 
 const toggleTodo = (id, currentStatus, isRoutine) => {
@@ -192,14 +208,19 @@ const renderTodos = () => {
         // Alert classes logic
         let alertClass = '';
         if (!isTaskCompleted) {
-            if (isRoutine) {
-                // HIGHLIGHT LOGIC:
-                // 1. If carried over from yesterday (lastCompletedDate != todayString AND it's NOT a brand new task)
-                // 2. OR 15 minutes have passed since lastAlertTime (global)
-                // 3. OR 15 minutes have passed since it was created today
+            if (isRoutine && todo.routineTime) {
+                // Check if current time is past the routine time today
+                const [h, m] = todo.routineTime.split(':').map(Number);
+                const targetTime = new Date();
+                targetTime.setHours(h, m, 0, 0);
+                
+                if (now >= targetTime.getTime()) {
+                    alertClass = 'blink-rainbow';
+                }
+            } else if (isRoutine) {
+                // Fallback for routines without a set time
                 const isCarriedOver = lastCompletedDate && lastCompletedDate !== todayString;
                 const timeSinceCreated = now - (createdAt || now);
-                
                 if (isCarriedOver || isRoutineDelayed || timeSinceCreated >= fifteenMinutes) {
                     alertClass = 'blink-rainbow';
                 }
@@ -214,7 +235,8 @@ const renderTodos = () => {
                     <div class="todo-title" style="${deadlineStyle}">${title}</div>
                     <div class="todo-meta">
                         <span>🕒 ${dateStr}</span>
-                        ${deadline ? `<span>📅 ${new Date(deadline).toLocaleString('ko-KR')}</span>` : ''}
+                        ${isRoutine && todo.routineTime ? `<span>⏰ 매일 ${todo.routineTime}</span>` : ''}
+                        ${!isRoutine && deadline ? `<span>📅 ${new Date(deadline).toLocaleString('ko-KR')}</span>` : ''}
                     </div>
                 </div>
                 <div class="todo-actions">
@@ -271,10 +293,17 @@ const checkRoutineAlerts = () => {
     const fifteenMinutes = 15 * 60 * 1000;
 
     if (now - lastAlertTime >= fifteenMinutes) {
-        const uncompletedRoutines = todos.filter(t => t.isRoutine && !t.completed);
+        const uncompletedRoutines = todos.filter(t => {
+            if (!t.isRoutine || t.completed) return false;
+            if (!t.routineTime) return true; // Default to old logic if no time set
+
+            const [h, m] = t.routineTime.split(':').map(Number);
+            const targetTime = new Date();
+            targetTime.setHours(h, m, 0, 0);
+            return now >= targetTime.getTime();
+        });
 
         if (uncompletedRoutines.length > 0) {
-            // Show modal if it's hidden
             if (alertModal.classList.contains('hidden')) {
                 alertModal.classList.remove('hidden');
             }
@@ -298,10 +327,15 @@ oneOffList.addEventListener('click', handleListClick);
 
 isRoutineToggle.addEventListener('change', (e) => {
     if (e.target.checked) {
-        deadlineWrapper.classList.add('hidden');
+        deadlineIcon.textContent = '⏰';
+        todoDeadline.classList.add('hidden');
+        routineTime.classList.remove('hidden');
         todoDeadline.value = '';
     } else {
-        deadlineWrapper.classList.remove('hidden');
+        deadlineIcon.textContent = '📅';
+        todoDeadline.classList.remove('hidden');
+        routineTime.classList.add('hidden');
+        routineTime.value = '';
     }
 });
 
